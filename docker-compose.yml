@@ -1,0 +1,291 @@
+# Home network security panel: the whole homelab in one compose file.
+#
+#   python scripts/init_env.py          # writes .env with random secrets (once)
+#   docker compose up -d --build        # everything except the sensor simulator
+#   docker compose --profile simulator up -d --build   # + simulated IoT sensors
+#
+# Sibling projects are built straight from GitHub. To build from local
+# checkouts instead, set in .env (paths relative to this file):
+#   SCANNER_SRC=../async-vuln-scanner
+#   SIEM_SRC=../mini-siem
+#   IOT_SRC=../iot-sensor-panel
+#
+# Exposure: every web UI and database is published on 127.0.0.1 only. The
+# *_BIND variables in .env are the deliberate, documented way to open one up
+# (see README, "Exposing Grafana on the LAN").
+#
+# Needs Docker Compose v2.17+ with BuildKit (additional_contexts, git contexts).
+
+name: homelab-security-panel
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+
+x-influx-env: &influx-env
+  INFLUX_ORG: ${INFLUX_ORG:-iot}
+  INFLUX_BUCKET: ${INFLUX_BUCKET:-sensors}
+  INFLUX_TOKEN: ${INFLUX_TOKEN:?run scripts/init_env.py or set INFLUX_TOKEN in .env}
+
+x-telegram-env: &telegram-env
+  # Empty = alerts go to each container's log instead of Telegram.
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+
+x-homesec-env: &homesec-env
+  <<: [*influx-env, *telegram-env]
+  HOMESEC_CONFIG: /app/config/homesec.yml
+  HOMESEC_DB: /data/homesec.db
+  HOMESEC_REPORTS_DIR: /data/reports
+  HOMESEC_SYSLOG_DIR: /router-logs
+  HOMESEC_SIEM_DB: /siem-data/siem.db
+  HOMESEC_NETWORKS: ${HOMESEC_NETWORKS:-192.168.1.0/24}
+  HOMESEC_HOSTNAME: ${HOMESEC_HOSTNAME:-homelab}
+  HOMESEC_INFLUX_BUCKET: ${HOMESEC_INFLUX_BUCKET:-homelab}
+  VULNSCAN_CACHE_DIR: /data/nvd-cache
+  NVD_API_KEY: ${NVD_API_KEY:-}
+  TZ: ${TZ:-Etc/UTC}
+
+services:
+  # ------------------------------------------------------------------ IoT stack
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    restart: unless-stopped
+    ports:
+      - "${MQTT_BIND:-127.0.0.1}:1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    mem_limit: 64m
+    cpus: 0.25
+    logging: *logging
+
+  influxdb:
+    # Shared by the IoT ingest ("sensors" bucket) and this project ("homelab"
+    # bucket, created on first write). 64-bit OS required on a Raspberry Pi.
+    image: influxdb:2.7.11
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8086:8086"   # homesec-discovery (host network) writes through this
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD:?run scripts/init_env.py or set INFLUX_ADMIN_PASSWORD in .env}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG:-iot}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET:-sensors}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUX_RETENTION:-30d}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?run scripts/init_env.py or set INFLUX_TOKEN in .env}
+      INFLUXD_REPORTING_DISABLED: "true"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    mem_limit: 768m
+    cpus: 1.0
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_BIND:-127.0.0.1}:3000:3000"
+    environment:
+      <<: *influx-env
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run scripts/init_env.py or set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/etc/grafana/dashboards/Home security/home-security-overview.json"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *logging
+
+  iot-ingest:
+    build:
+      context: ${IOT_SRC:-https://github.com/rosko35/iot-sensor-panel.git#main}
+    image: iot-sensor-panel:homelab
+    restart: unless-stopped
+    command: ["iot-ingest"]
+    environment:
+      <<: [*influx-env, *telegram-env]
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TLS: "false"
+      MQTT_CLIENT_ID: ingest
+      INFLUX_URL: http://influxdb:8086
+      ALERTS_CONFIG: /app/config/alerts.yaml   # default rules baked into the image
+    depends_on:
+      mosquitto:
+        condition: service_started
+      influxdb:
+        condition: service_healthy
+    <<: *hardening
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *logging
+
+  iot-simulator:
+    profiles: [simulator]
+    image: iot-sensor-panel:homelab
+    pull_policy: never   # built by iot-ingest above
+    restart: unless-stopped
+    command: ["iot-simulator"]
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TLS: "false"
+      SIM_DEVICES: ${SIM_DEVICES:-sim-living-room,sim-server-room,sim-greenhouse,sim-garage}
+      SIM_INTERVAL: ${SIM_INTERVAL:-5}
+    depends_on:
+      iot-ingest:
+        condition: service_started
+    <<: *hardening
+    mem_limit: 64m
+    cpus: 0.25
+    logging: *logging
+
+  # ------------------------------------------------------------------ log monitoring
+  mini-siem:
+    build:
+      context: ${SIEM_SRC:-https://github.com/rosko35/mini-siem.git#main}
+    image: mini-siem:homelab
+    restart: unless-stopped
+    command: ["run"]
+    environment:
+      <<: *telegram-env
+      SIEM_CONFIG: /app/config.yml
+      SIEM_DB: /data/siem.db
+      SIEM_DASHBOARD_HOST: 0.0.0.0     # inside the container; published on loopback below
+      SIEM_HOSTNAME: ${HOMESEC_HOSTNAME:-homelab}
+      SIEM_DASHBOARD_USER: ${SIEM_DASHBOARD_USER:-}
+      SIEM_DASHBOARD_PASSWORD: ${SIEM_DASHBOARD_PASSWORD:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    group_add:
+      - "4"   # adm: read access to /var/log/auth.log on Debian/Raspberry Pi OS
+    volumes:
+      - /var/log:/var/log:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./siem/config.yml:/app/config.yml:ro
+      - ./siem/rules/router.yml:/app/rules/router.yml:ro   # next to mini-siem's own rules
+      - router-logs:/router-logs:ro
+      - siem-data:/data
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=16m
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    logging: *logging
+
+  # ------------------------------------------------------------------ this project
+  homesec:
+    # Port scans, mini-siem export, router syslog receiver. Bridge network,
+    # no capabilities: TCP connect scans need no privileges.
+    build:
+      context: .
+      dockerfile: docker/homesec.Dockerfile
+      target: homesec
+      additional_contexts:
+        scanner: ${SCANNER_SRC:-https://github.com/rosko35/async-vuln-scanner.git#main}
+    image: homesec:local
+    restart: unless-stopped
+    command: ["run", "--only", "scan,siem_export,syslog"]
+    environment:
+      <<: *homesec-env
+      INFLUX_URL: http://influxdb:8086
+      SYSLOG_HOST: 0.0.0.0
+      SYSLOG_PORT: "5514"
+    ports:
+      # Point the router's "remote syslog" at the Pi, UDP 514. Loopback until
+      # you set SYSLOG_BIND to the Pi's LAN address.
+      - "${SYSLOG_BIND:-127.0.0.1}:514:5514/udp"
+    volumes:
+      - ./config:/app/config:ro
+      - homesec-data:/data
+      - router-logs:/router-logs
+      # Opened with SQLite mode=ro. Not mounted :ro because a WAL-mode reader
+      # still needs the shared-memory (-shm) file next to the database.
+      - siem-data:/siem-data
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=16m
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 64
+    logging: *logging
+
+  homesec-discovery:
+    # The ONLY privileged piece of the stack, kept as small as possible:
+    #   network_mode: host  ARP works on layer 2; from a bridge network the
+    #                       container would only see Docker's virtual network.
+    #   cap_add: NET_RAW    raw sockets for Scapy's ARP who-has broadcast.
+    # It runs as uid 10001; only the python3-netraw binary in this image carries
+    # the cap_net_raw file capability, which is why no-new-privileges must stay
+    # off here (it would block that capability on exec). No published ports, no
+    # other capabilities, read-only root filesystem, nothing else runs in it.
+    # Without Scapy/NET_RAW it falls back to reading /proc/net/arp.
+    build:
+      context: .
+      dockerfile: docker/homesec.Dockerfile
+      target: discovery
+      additional_contexts:
+        scanner: ${SCANNER_SRC:-https://github.com/rosko35/async-vuln-scanner.git#main}
+    image: homesec-discovery:local
+    restart: unless-stopped
+    command: ["run", "--only", "discovery"]
+    network_mode: host
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]
+    read_only: true
+    user: "10001"
+    environment:
+      <<: *homesec-env
+      INFLUX_URL: http://127.0.0.1:8086
+    volumes:
+      - ./config:/app/config:ro
+      - homesec-data:/data
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 32
+    logging: *logging
+
+volumes:
+  mosquitto-data:
+  influxdb-data:
+  influxdb-config:
+  grafana-data:
+  siem-data:
+  router-logs:
+  homesec-data:
