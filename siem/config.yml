@@ -1,0 +1,40 @@
+# mini-siem configuration used by the homelab stack (mounted at /app/config.yml).
+# Relative paths resolve against /app. The database path is overridden by
+# SIEM_DB=/data/siem.db in docker-compose.yml.
+
+database: data/siem.db
+rules: rules                 # mini-siem's own rules + router.yml mounted next to them
+retention_days: 30
+log_timezone: local          # /etc/localtime is mounted from the host
+store_all_http: false
+
+# Addresses that never raise alerts. Leave the LAN in: an infected laptop
+# guessing the router password is exactly what router-*.yml is for.
+ignore_networks: []
+
+poll_interval: 1.0
+
+sources:
+  # The Pi's / laptop's own SSH log. Raspberry Pi OS Bookworm logs to journald
+  # only; install rsyslog (`sudo apt install rsyslog`) to get /var/log/auth.log.
+  - type: file
+    path: /var/log/auth.log
+    parser: auth
+  # Router SSH events, written by `homesec syslog` (see README, "Router logs").
+  - type: file
+    path: /router-logs/router-siem.log
+    parser: auth
+    from_beginning: true
+
+geoip:
+  database: null
+  static_map: null
+
+dashboard:
+  host: 0.0.0.0              # inside the container; published on 127.0.0.1 only
+  port: 8080
+
+telegram:
+  min_severity: medium
+  batch_interval: 10
+  max_alerts_per_message: 10

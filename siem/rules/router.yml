@@ -1,0 +1,80 @@
+# Router rules for mini-siem (homelab-security-panel).
+#
+# Source: router-siem.log, written by `homesec syslog` from the router's remote
+# syslog. Every line in that feed carries the hostname "router" (setting
+# syslog.feed_hostname), so these rules only ever fire on router events.
+# Dropbear messages (OpenWrt & co.) are translated to OpenSSH wording first,
+# because mini-siem's auth parser only understands sshd.
+#
+# Event types: ssh_failed, ssh_invalid_user, ssh_accepted
+# Fields:      host, src_ip, user, method, port, invalid_user
+#
+# Rule ids are prefixed "router-" so they never clash with mini-siem's own
+# rules/ssh.yml and rules/web.yml in the same directory.
+
+rules:
+  - id: router-ssh-failures
+    name: Failed logins on the router
+    description: >
+      Nobody in the household should be guessing the router password. Much
+      lower threshold than mini-siem's internet-facing ssh-bruteforce rule.
+    type: threshold
+    severity: high
+    match:
+      event_type: ssh_failed
+      host: router
+    group_by: src_ip
+    threshold: 3
+    window: 300
+    cooldown: 900
+    message: "{count} failed router logins from {key} in {window}s (last user: {user})"
+    mitre: [T1110.001]
+
+  - id: router-user-guessing
+    name: Username guessing on the router
+    description: One address tries several different accounts on the router.
+    type: threshold
+    severity: high
+    match:
+      event_type: [ssh_failed, ssh_invalid_user]
+      host: router
+    group_by: src_ip
+    distinct: user
+    threshold: 3
+    window: 600
+    cooldown: 1800
+    message: "{key} tried {count} different usernames on the router in {window}s"
+    mitre: [T1110.003]
+
+  - id: router-shell-login
+    name: Shell login on the router
+    description: >
+      Someone opened an SSH session on the router. Expected right after you
+      log in yourself; anything else deserves a look.
+    type: pattern
+    severity: medium
+    match:
+      event_type: ssh_accepted
+      host: router
+    group_by: src_ip
+    cooldown: 3600
+    message: "SSH login to the router as '{user}' from {key}"
+    mitre: [T1078, T1021.004]
+
+  - id: router-login-after-failures
+    name: Router login after failed attempts
+    description: A successful router login right after several failures from the same address.
+    type: sequence
+    severity: critical
+    match:
+      event_type: ssh_failed
+      host: router
+    followed_by:
+      event_type: ssh_accepted
+      host: router
+    group_by: src_ip
+    threshold: 3
+    window: 900
+    cooldown: 0
+    message: "Router login as '{user}' from {key} succeeded after {count} failures"
+    mitre: [T1110.001, T1078]
