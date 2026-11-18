@@ -135,7 +135,7 @@
             "uid": "influxdb"
           },
           "refId": "A",
-          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: -1d)\n  |> filter(fn: (r) => r._measurement == \"homesec_devices\")\n  |> filter(fn: (r) => r._field == \"total\" or r._field == \"online\" or r._field == \"unknown\")\n  |> group(columns: [\"_field\"])\n  |> last()"
+          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: -1d)\n  |> filter(fn: (r) => r._measurement == \"homesec_devices\")\n  |> filter(fn: (r) => r._field == \"total\" or r._field == \"online\" or r._field == \"unknown\")\n  |> last()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"total\", \"online\", \"unknown\"])"
         }
       ],
       "fieldConfig": {
@@ -151,8 +151,7 @@
                 "value": null
               }
             ]
-          },
-          "displayName": "${__field.name}"
+          }
         },
         "overrides": [
           {
@@ -218,7 +217,7 @@
             "uid": "influxdb"
           },
           "refId": "A",
-          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"homesec_devices\")\n  |> filter(fn: (r) => r._field == \"total\" or r._field == \"online\" or r._field == \"unknown\")\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)"
+          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"homesec_devices\")\n  |> filter(fn: (r) => r._field == \"total\" or r._field == \"online\" or r._field == \"unknown\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"total\", \"online\", \"unknown\"])"
         }
       ],
       "fieldConfig": {
@@ -233,7 +232,6 @@
             "showPoints": "auto",
             "spanNulls": true
           },
-          "displayName": "${__field.labels._field}",
           "decimals": 0
         },
         "overrides": []
@@ -577,7 +575,7 @@
             "uid": "influxdb"
           },
           "refId": "A",
-          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"homesec_scan\")\n  |> filter(fn: (r) => r._field == \"hosts_scanned\" or r._field == \"open_ports\" or r._field == \"changes\")\n  |> group(columns: [\"_field\"])\n  |> last()"
+          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"homesec_scan\")\n  |> filter(fn: (r) => r._field == \"hosts_scanned\" or r._field == \"open_ports\" or r._field == \"changes\")\n  |> last()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"hosts_scanned\", \"open_ports\", \"changes\"])"
         }
       ],
       "fieldConfig": {
@@ -586,7 +584,6 @@
             "mode": "fixed",
             "fixedColor": "blue"
           },
-          "displayName": "${__field.labels._field}",
           "decimals": 0
         },
         "overrides": []
@@ -627,7 +624,7 @@
             "uid": "influxdb"
           },
           "refId": "A",
-          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"homesec_scan\")\n  |> filter(fn: (r) => r._field == \"open_ports\" or r._field == \"unique_cves\")\n  |> group(columns: [\"_field\"])"
+          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"homesec_scan\")\n  |> filter(fn: (r) => r._field == \"open_ports\" or r._field == \"unique_cves\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"open_ports\", \"unique_cves\"])"
         }
       ],
       "fieldConfig": {
@@ -642,7 +639,6 @@
             "showPoints": "always",
             "spanNulls": true
           },
-          "displayName": "${__field.labels._field}",
           "decimals": 0
         },
         "overrides": []
@@ -774,7 +770,7 @@
             "uid": "influxdb"
           },
           "refId": "A",
-          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"siem_summary\")\n  |> filter(fn: (r) => r._field == \"alerts_24h\" or r._field == \"high_alerts_24h\" or r._field == \"ssh_attempts_24h\" or r._field == \"attacker_ips_24h\")\n  |> group(columns: [\"_field\"])\n  |> last()"
+          "query": "from(bucket: \"${hbucket}\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"siem_summary\")\n  |> filter(fn: (r) => r._field == \"alerts_24h\" or r._field == \"high_alerts_24h\" or r._field == \"ssh_attempts_24h\" or r._field == \"attacker_ips_24h\")\n  |> last()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"alerts_24h\", \"high_alerts_24h\", \"ssh_attempts_24h\", \"attacker_ips_24h\"])"
         }
       ],
       "fieldConfig": {
@@ -783,7 +779,6 @@
             "mode": "fixed",
             "fixedColor": "blue"
           },
-          "displayName": "${__field.labels._field}",
           "decimals": 0
         },
         "overrides": [
