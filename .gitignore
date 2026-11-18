@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets
+.env
+*.pem
+*.key
+
+# Runtime state
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Scan reports and generated logs
+/reports/
+*.log
+*.log.[0-9]
+/logs/
+nvd-cache/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

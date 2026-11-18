@@ -1,0 +1,77 @@
+# Small, hand-picked subset of the IEEE MA-L registry: vendors that commonly
+# show up on home networks. Prefixes are 24-bit OUIs (first three octets).
+# Anything not listed is reported as "unknown". For the full table, download
+# oui.csv from https://standards-oui.ieee.org/oui/oui.csv and point
+# discovery.oui_file at it.
+prefix,vendor
+B8:27:EB,Raspberry Pi Foundation
+DC:A6:32,Raspberry Pi Trading
+E4:5F:01,Raspberry Pi Trading
+D8:3A:DD,Raspberry Pi Trading
+28:CD:C1,Raspberry Pi Trading
+2C:CF:67,Raspberry Pi Trading
+24:0A:C4,Espressif
+30:AE:A4,Espressif
+24:6F:28,Espressif
+24:62:AB,Espressif
+A4:CF:12,Espressif
+84:CC:A8,Espressif
+84:F3:EB,Espressif
+3C:71:BF,Espressif
+5C:CF:7F,Espressif
+18:FE:34,Espressif
+60:01:94,Espressif
+BC:DD:C2,Espressif
+EC:FA:BC,Espressif
+7C:9E:BD,Espressif
+8C:AA:B5,Espressif
+98:F4:AB,Espressif
+C8:2B:96,Espressif
+48:3F:DA,Espressif
+E8:DB:84,Espressif
+00:50:56,VMware
+00:0C:29,VMware
+00:05:69,VMware
+08:00:27,Oracle VirtualBox
+00:15:5D,Microsoft Hyper-V
+00:16:3E,Xen
+00:17:88,Philips Lighting (Hue)
+18:B4:30,Nest Labs
+00:11:32,Synology
+00:04:0E,AVM (FRITZ!Box)
+BC:05:43,AVM (FRITZ!Box)
+C0:25:06,AVM (FRITZ!Box)
+3C:A6:2F,AVM (FRITZ!Box)
+24:5A:4C,Ubiquiti
+78:8A:20,Ubiquiti
+FC:EC:DA,Ubiquiti
+04:18:D6,Ubiquiti
+80:2A:A8,Ubiquiti
+44:D9:E7,Ubiquiti
+74:83:C2,Ubiquiti
+F0:9F:C2,Ubiquiti
+00:0E:58,Sonos
+5C:AA:FD,Sonos
+B8:E9:37,Sonos
+94:9F:3E,Sonos
+00:E0:4C,Realtek
+00:0D:B9,PC Engines
+00:1B:21,Intel
+00:1B:63,Apple
+3C:07:54,Apple
+F0:18:98,Apple
+A4:83:E7,Apple
+44:65:0D,Amazon
+F0:27:2D,Amazon
+74:C2:46,Amazon
+FC:65:DE,Amazon
+F4:F5:D8,Google
+54:60:09,Google
+3C:5A:B4,Google
+50:C7:BF,TP-Link
+B0:BE:76,TP-Link
+A0:40:A0,Netgear
+00:16:6C,Samsung
+64:09:80,Xiaomi
+28:6C:07,Xiaomi
+34:CE:00,Xiaomi

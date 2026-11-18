@@ -1,0 +1,12 @@
+# Sibling projects as editable installs from local checkouts next to this one:
+#
+#   PROJECT_IT/
+#     async-vuln-scanner/
+#     mini-siem/
+#     iot-sensor-panel/
+#     homelab-security-panel/   <- you are here
+#
+# pip resolves these paths relative to the current directory, so run
+# `pip install -r requirements/siblings-local.txt` from the repository root.
+-e ../async-vuln-scanner
+-e ../mini-siem

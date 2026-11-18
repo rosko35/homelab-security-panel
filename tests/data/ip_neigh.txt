@@ -1,0 +1,8 @@
+192.168.1.1 dev eth0 lladdr 3c:a6:2f:12:34:56 REACHABLE
+192.168.1.23 dev eth0 lladdr b8:27:eb:aa:bb:cc STALE
+192.168.1.40 dev eth0 lladdr 24:0a:c4:01:02:03 DELAY
+192.168.1.77 dev eth0  FAILED
+192.168.1.78 dev eth0  INCOMPLETE
+192.168.1.90 dev wlan0 lladdr 9a:1b:2c:3d:4e:5f PERMANENT
+172.17.0.2 dev docker0 lladdr 02:42:ac:11:00:02 STALE
+fe80::1 dev eth0 lladdr 3c:a6:2f:12:34:56 router STALE

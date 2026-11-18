@@ -1,0 +1,3 @@
+# Sibling projects straight from GitHub (CI, Docker, a fresh machine).
+async-vuln-scanner @ git+https://github.com/rosko35/async-vuln-scanner.git@main
+mini-siem @ git+https://github.com/rosko35/mini-siem.git@main
