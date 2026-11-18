@@ -1,0 +1,20 @@
+# One InfluxDB 2 datasource for every dashboard (Flux).
+# uid "influxdb" matches the iot-sensor-panel dashboard, so it works unchanged.
+# ${...} values are expanded by Grafana from the container environment.
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    uid: influxdb
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    editable: false
+    jsonData:
+      version: Flux
+      organization: ${INFLUX_ORG}
+      defaultBucket: ${INFLUX_BUCKET}
+      timeInterval: 10s
+    secureJsonData:
+      token: ${INFLUX_TOKEN}

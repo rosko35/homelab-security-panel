@@ -1,0 +1,14 @@
+# Every JSON file under /etc/grafana/dashboards, one Grafana folder per
+# sub-directory: "Home security" (this project) and "IoT" (iot-sensor-panel).
+apiVersion: 1
+
+providers:
+  - name: homelab
+    orgId: 1
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 60
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: true
