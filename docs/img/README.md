@@ -1,5 +1,7 @@
 # Images
 
+🇹🇷 [Türkçe](README.tr.md)
+
 Nothing in this folder is recorded yet. The README links to these files once
 they exist; until then it shows plain-text placeholders.
 
