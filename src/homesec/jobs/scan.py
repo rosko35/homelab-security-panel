@@ -123,7 +123,14 @@ class ScanJob:
         devices = self.targets(started)
         if not devices:
             log.info("scan: no devices seen recently, nothing to scan")
-            return {"hosts": 0, "open_ports": 0, "changes": [], "alerts": []}
+            return {
+                "hosts": 0,
+                "open_ports": 0,
+                "changes": [],
+                "alerts": [],
+                "skipped": "no devices seen recently",
+                "retry_after": 600,
+            }
 
         ports = parse_ports(self.cfg.ports)
         options = ScanOptions(

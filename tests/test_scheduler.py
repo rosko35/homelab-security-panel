@@ -80,3 +80,19 @@ def test_long_job_is_cancelled_after_grace_period(inventory):
     asyncio.run(go())
     assert stuck.cancelled
     assert inventory.last_run("stuck") is None  # will run again after restart
+
+
+class SkippingJob(CountingJob):
+    async def run(self):
+        self.calls += 1
+        return {"skipped": "no devices yet", "retry_after": 600}
+
+
+def test_skipped_job_is_retried_soon_not_after_a_full_interval(inventory):
+    now = [1_000_000.0]
+    weekly = SkippingJob("scan", 7 * 86400)
+    sched = Scheduler([weekly], inventory, clock=lambda: now[0])
+    asyncio.run(sched.run_job(weekly))
+    assert sched.next_due(weekly) == 1_000_000.0 + 600
+    run = inventory.job_runs()[0]
+    assert (run["status"], run["error"]) == ("skipped", "no devices yet")

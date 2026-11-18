@@ -62,6 +62,14 @@ class Scheduler:
             self.inventory.set_last_run(job.name, started, "error", f"{type(exc).__name__}: {exc}")
             self.runs.append((job.name, "error"))
             return None
+        retry_after = (summary or {}).get("retry_after")
+        if retry_after:
+            # Nothing to do yet (e.g. no devices discovered): try again soon instead of
+            # waiting a whole interval. Stored as a back-dated last run.
+            when = started - job.interval + float(retry_after)
+            self.inventory.set_last_run(job.name, when, "skipped", summary.get("skipped"))
+            self.runs.append((job.name, "skipped"))
+            return summary
         self.inventory.set_last_run(job.name, started, "ok")
         self.runs.append((job.name, "ok"))
         log.info("job %s finished in %.1fs", job.name, self._clock() - started)
